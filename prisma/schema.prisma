@@ -1,0 +1,138 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Location {
+  LAGOS
+  AWKA
+}
+
+enum RegistrationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum InquiryStatus {
+  UNREAD
+  READ
+  RESPONDED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+model User {
+  id            String         @id @default(cuid()) @db.VarChar(30)
+  fullName      String         @map("full_name") @db.VarChar(160)
+  email         String         @unique @db.VarChar(255)
+  phone         String?        @db.VarChar(32)
+  registrations Registration[]
+  createdAt     DateTime       @default(now()) @map("created_at")
+
+  @@map("users")
+}
+
+model Category {
+  id            Int            @id @default(autoincrement())
+  name          String         @unique @db.VarChar(80)
+  slug          String         @unique @db.VarChar(100)
+  description   String?        @db.VarChar(500)
+  registrations Registration[]
+  events        Event[]
+
+  @@map("categories")
+}
+
+model Registration {
+  id         String             @id @default(cuid()) @db.VarChar(30)
+  userId     String?            @map("user_id") @db.VarChar(30)
+  categoryId Int                @map("category_id")
+  fullName   String             @map("full_name") @db.VarChar(160)
+  email      String             @db.VarChar(255)
+  phone      String             @db.VarChar(32)
+  location   Location
+  bio        String             @db.Text
+  imagePath  String?            @map("image_path") @db.VarChar(500)
+  status     RegistrationStatus @default(PENDING)
+  createdAt  DateTime           @default(now()) @map("created_at")
+  user       User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
+  category   Category           @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  payments   Payment[]
+
+  @@index([email])
+  @@index([status, createdAt])
+  @@map("registrations")
+}
+
+model Event {
+  id          Int       @id @default(autoincrement())
+  title       String    @db.VarChar(180)
+  slug        String    @unique @db.VarChar(200)
+  description String    @db.Text
+  eventDate   DateTime  @map("event_date")
+  location    Location
+  venue       String?   @db.VarChar(180)
+  imagePath   String?   @map("image_path") @db.VarChar(500)
+  status      String    @default("UPCOMING") @db.VarChar(24)
+  isSample    Boolean   @default(false) @map("is_sample")
+  registrationFeeKobo Int? @map("registration_fee_kobo") @db.UnsignedInt
+  categoryId  Int?      @map("category_id")
+  category    Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  payments    Payment[]
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([eventDate, status])
+  @@map("events")
+}
+
+model Payment {
+  id                    Int           @id @default(autoincrement())
+  reference             String        @unique @db.VarChar(100)
+  eventId               Int?          @map("event_id")
+  registrationId        String?       @map("registration_id") @db.VarChar(30)
+  email                 String        @db.VarChar(255)
+  amountKobo            Int           @map("amount_kobo") @db.UnsignedInt
+  currency              String        @default("NGN") @db.Char(3)
+  status                PaymentStatus @default(PENDING)
+  gatewayTransactionId  String?       @unique @map("gateway_transaction_id") @db.VarChar(100)
+  createdAt             DateTime      @default(now()) @map("created_at")
+  paidAt                DateTime?     @map("paid_at")
+  event                 Event?        @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  registration          Registration? @relation(fields: [registrationId], references: [id], onDelete: Restrict)
+
+  @@index([eventId, status])
+  @@index([registrationId, status])
+  @@map("payments")
+}
+
+model Inquiry {
+  id        String       @id @default(cuid()) @db.VarChar(30)
+  fullName  String       @map("full_name") @db.VarChar(160)
+  email     String       @db.VarChar(255)
+  phone     String?      @db.VarChar(32)
+  subject   String       @db.VarChar(180)
+  message   String       @db.Text
+  status    InquiryStatus @default(UNREAD)
+  createdAt DateTime     @default(now()) @map("created_at")
+
+  @@index([status, createdAt])
+  @@map("contact_inquiries")
+}
+
+model SiteSetting {
+  key        String   @id @db.VarChar(120)
+  value      String   @db.Text
+  description String? @db.VarChar(255)
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("settings")
+}
